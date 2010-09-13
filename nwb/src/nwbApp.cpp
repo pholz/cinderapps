@@ -20,6 +20,7 @@ public:
 	Color color;
 	vector<int> moves;
 	int dir;
+	vector<Vec2f> past;
 	
 	Player(Vec2f _pos, string _name, Color _color, int _dir)
 	{
@@ -31,6 +32,8 @@ public:
 	
 	
 	void move(int mv){
+		past.push_back(pos);
+		
 		if(mv == MOVE_F)
 		{
 			pos.x += (dir == DIR_R ? STEP : -STEP);
@@ -211,13 +214,22 @@ void nwbApp::draw()
 	gl::clear( Color( 0.1f, 0.1f, 0.1f ) );
 	
 	for(int i = 0; i < mPlayers.size(); i++){
-	
+
+		for(int j = 0; j < mPlayers[i]->past.size(); j++)
+		{
+			glPushMatrix();
+			gl::translate(Vec2f( this->getWindowWidth() * mPlayers[i]->past[j].x, this->getWindowHeight() * mPlayers[i]->past[j].y));
+			gl::color(Color(.5f,.5f,1.0f));
+			gl::drawSolidCircle(Vec2f(0.0f, 0.0f), 2.0f);
+			glPopMatrix();
+		}
+		
 		glPushMatrix();
-	
+		
 		gl::translate( Vec2f( this->getWindowWidth() * mPlayers[i]->pos.x, this->getWindowHeight() * mPlayers[i]->pos.y) );
 		gl::color(mPlayers[i]->color);
-		gl::drawSolidCircle(Vec2f(0.0f, 0.0f), 5.0f);
-	
+		gl::drawSolidCircle(Vec2f(0.0f, 0.0f), 7.0f);
+		
 		glPopMatrix();
 	
 	}
