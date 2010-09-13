@@ -1,4 +1,7 @@
 #include "cinder/app/AppBasic.h"
+#include "cinder/gl/Texture.h"
+#include "cinder/Text.h"
+#include "cinder/ImageIo.h"
 #include <vector>
 using namespace ci;
 using namespace ci::app;
@@ -12,6 +15,9 @@ using namespace std;
 #define DIR_L 1
 #define DIR_R 0
 #define STEP 0.02f
+#define FLASHTIME .5f
+
+static const bool PREMULT = false;
 
 class Player {
 public:
@@ -21,6 +27,8 @@ public:
 	vector<int> moves;
 	int dir;
 	vector<Vec2f> past;
+	float flash;
+	gl::Texture ok;
 	
 	Player(Vec2f _pos, string _name, Color _color, int _dir)
 	{
@@ -28,6 +36,15 @@ public:
 		name = _name;
 		color = _color;
 		dir = _dir;
+		flash = 0;
+		
+		TextLayout layout;
+		layout.setFont( Font( "Helvetica", 24 ) );
+		layout.setColor( Color( .1, .1, .1 ) );
+		layout.clear( Color(.9,.9,.9));
+		layout.addCenteredLine( std::string( "ok" ) );
+		Surface8u rendered = layout.render( true, PREMULT );
+		ok = gl::Texture( rendered );
 	}
 	
 	
@@ -49,6 +66,10 @@ public:
 		else if(mv == MOVE_D)
 		{
 			pos.y += STEP;
+		}
+		else if(mv == STOP)
+		{
+			flash = FLASHTIME;
 		}
 			
 	}
@@ -89,12 +110,13 @@ class nwbApp : public AppBasic {
 	unsigned int round;
 	Moves result[4][4];
 	char tx[5];
+	float last;
 };
 
 void nwbApp::setup()
 {
-	shared_ptr<Player> p1( new Player( Vec2f(.3f,.0f), "p1", Color(1.0f, .0f, .0f), DIR_L ) );
-	shared_ptr<Player> p2( new Player( Vec2f(-.3f,.0f), "p2", Color(.0f, 1.0f, .0f), DIR_R ) );
+	shared_ptr<Player> p1( new Player( Vec2f(.3f,.0f), "p1", Color(.5f, 1.0f, .5f), DIR_L ) );
+	shared_ptr<Player> p2( new Player( Vec2f(-.3f,.0f), "p2", Color(.5f, .5f, 1.0f), DIR_R ) );
 	
 	mPlayers.push_back(p1);
 	mPlayers.push_back(p2);
@@ -122,6 +144,10 @@ void nwbApp::setup()
 	tx[MOVE_U] = 'u';
 	tx[MOVE_D] = 'd';
 	tx[STOP] = 's';
+	
+	last = 0.0f;
+	
+	gl::enableAlphaBlending( PREMULT );
 }
 
 void nwbApp::mouseDrag( MouseEvent event )
@@ -174,11 +200,18 @@ Moves nwbApp::evaluate(int p0, int p1)
 
 void nwbApp::update()
 {
+	float now = getElapsedSeconds();
+	float dt = now - last;
+	last = now;
+	
 	bool go = true;
 	for(int i = 0; i < mPlayers.size(); i++)
 	{
 		if(mPlayers[i]->moves.size() != round)
 			go = false;
+		
+		if(mPlayers[i]->flash > 0) mPlayers[i]->flash -= dt;
+		if(mPlayers[i]->flash < 0) mPlayers[i]->flash = 0;
 	}
 	
 	if(go)
@@ -203,6 +236,8 @@ void nwbApp::update()
 		
 		
 	}
+	
+	
 }
 
 void nwbApp::draw()
@@ -228,9 +263,21 @@ void nwbApp::draw()
 		
 		gl::translate( Vec2f( this->getWindowWidth() * mPlayers[i]->pos.x, this->getWindowHeight() * mPlayers[i]->pos.y) );
 		gl::color(mPlayers[i]->color);
-		gl::drawSolidCircle(Vec2f(0.0f, 0.0f), 7.0f);
+		
+		if(mPlayers[i]->flash > 0)
+			gl::color(Color(mPlayers[i]->color.r + mPlayers[i]->flash, 0, 0));
+		
+		gl::drawSolidCircle(Vec2f(0.0f, 0.0f), 7.0f + mPlayers[i]->flash * 5.0f);
 		
 		glPopMatrix();
+		
+		if(mPlayers[i]->moves.size() == round)
+		{
+			cout << "WOOOO" << endl;
+			glColor3f( 1.0f, 1.0f, 1.0f );
+			gl::draw( mPlayers[i]->ok, Vec2f( i == 0 ? 200 : -200, -100 ) );
+			
+		}
 	
 	}
 	
